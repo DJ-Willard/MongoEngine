@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Blog!</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-ka7Sk0Gln4gmtz2MlQnikT1wXgYsOg+OMhuP+IlRH9sENBO0LRn5q+8nbTov4+1p" crossorigin="anonymous"></script>
+        <script
+           src="https://code.jquery.com/jquery-3.5.1.min.js"
+           integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+           crossorigin="anonymous"></script>
+        <script src="{{ url_for('static', filename="js/moment.min.js") }}"></script>
+    </head>
+    <body>
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+          <div class="container-fluid">
+            <a class="navbar-brand" href="/">Blog!</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+              <ul class="navbar-nav">
+                <li class="nav-item">
+                  <a class="nav-link active" aria-current="page" href="/">Home</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" href="/admin">Admin</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+        </nav>
+        {% if admin %}
+        <div class="container">
+            <form>
+                <div class="row">
+                    <div class="col-12 status"></div>
+                    <div class="col-12">
+                        <div class="form-group">
+                          <label for="title">Title: </label>
+                          <input class="form-control" name="title" placeholder="Choose a title" />
+                        </div>
+                        <div class="form-group">
+                          <label for="author">Author: </label>
+                          <input class="form-control" name="author" placeholder="John" />
+                        </div>
+                        <div class="form-group">
+                          <label for="body">Content: </label>
+                          <textarea class="form-control" name="body" rows="8" cols="80" placeholder="Type something..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="submit">Post!</button>
+                        </div>
+                   </div>
+                </div>
+            </form>
+        </div>
+        <script type="text/javascript">
+            var SCRIPT_ROOT = {{ request.script_root|tojson|safe }} ;
+            var AURL = SCRIPT_ROOT + "/api/articles";
+            $('#submit').click(
+               function(e)
+               {
+                  e.preventDefault();
+                  var title = $('input[name="title"]').val();
+                  var body = $('textarea[name="body"]').val();
+                  var author = $('input[name="author"]').val();
+                  $.ajax({
+                    url: AURL,
+                    data: JSON.stringify({'title': title, 'body': body, 'author': author}),
+                    contentType: 'application/json', method: "POST",
+                    success: function(out){
+                     console.log(out);
+                     console.log("Submit successful!");
+                     window.location.reload();},
+                    error: function(err){
+                       console.log("Data storage failed!");
+                       console.log(err);
+                       statusbox.html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Deletion failed!<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                     }}
+                  );
+              });
+        </script>
+        <div class="container admin-articles">
+            <div class="row">
+                <div class="col-12 text-centered">
+                  <h2>Posted articles</h2>
+                </div>
+            </div>
+        </div>
+        <script type="text/javascript">
+            var SCRIPT_ROOT = {{ request.script_root|tojson|safe }} ;
+            var AURL = SCRIPT_ROOT + "/api/articles";
+            $( document ).ready(function() {
+                $.getJSON(AURL).done(
+                  function(data) {
+                     for(i=0;i<data.length;i++)
+                     {
+                        var dt = moment(data[i].published.$date).utc().format("dddd, MMMM Do YYYY, h:mm:ss a");
+                        var newrow = '<form><div class="row article"><div class="col-12 status"></div>';
+                        newrow += '<input name="aid" type="hidden" value="'+data[i]._id.$oid+'" />';
+                        newrow += '<div class="col-lg-4 col-sm-12"><input class="form-control" name="title" value="'+data[i].title+'" /></div>';
+                        newrow += '<div class="col-lg-2 col-sm-12"><input class="form-control" name="author" value="'+data[i].author+'" /></div>';
+                        newrow += '<div class="col-lg-4 col-sm-12"><input class="form-control" name="published" value="'+dt.toString()+'" /></div>';
+                        newrow += '<div class="col-lg-2 col-sm-12"><button class="update btn btn-secondary">Update!</button><button class="delete btn btn-danger">Delete!</button></div>';
+                        newrow += '<div class="col-lg-12"><textarea class="form-control" name="body" rows="8" cols="80">'+data[i].body+'</textarea></div>';
+                        newrow += '</div></form>';
+                        $(".admin-articles").append(newrow);
+                     }
+                   }
+                 ).fail(function(err){
+                   console.log("Error!");
+                   console.log(err);
+                 });
+            });
+            $( document ).ready(function() {
+                $(document).on('click', 'form .delete', function(e){
+                    e.preventDefault();
+                    var article_box = $(this).parents(".article");
+                    var statusbox = article_box.find(".status");
+                    var aid = article_box.find('input[name="aid"]').val();
+                    var AURL = SCRIPT_ROOT + "/api/article/" + aid;
+                    $.ajax({
+                      url: AURL,
+                      contentType: 'application/json', method: "DELETE",
+                      success: function(out){
+                       console.log("Delete successful!");
+                       console.log(out);
+                       article_box.parent().remove();},
+                      error: function(err){
+                          console.log("Delete request failed!");
+                          console.log(err);
+                          statusbox.html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Deletion failed!<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                        }
+                    });
+                });
+                $(document).on('click', 'form .update', function(e){
+                      console.log('Updating');
+                      e.preventDefault();
+                      var article_box = $(this).parents(".article");
+                      var statusbox = article_box.find(".status");
+                      var aid = article_box.find('input[name="aid"]').val();
+                      var title = article_box.find('input[name="title"]').val();
+                      var body = article_box.find('textarea[name="body"]').val();
+                      var author = article_box.find('input[name="author"]').val();
+                      var published = moment(article_box.find('input[name="published"]').val(), "dddd, MMMM Do YYYY, h:mm:ss a").format('YYYY-MM-DD HH:mm');
+                      var AURL = SCRIPT_ROOT + "/api/article/" + aid;
+                      console.log(title, published);
+                      $.ajax({
+                        url:AURL,
+                        data: JSON.stringify({'title': title, 'body': body, 'author': author, 'published': published}),
+                        contentType: 'application/json', method: "PUT",
+                        success: function(out){
+                         console.log(out);
+                         console.log("Update successful!");
+                         statusbox.html('<div class="alert alert-success alert-dismissible fade show" role="alert">Update successful!<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                       },
+                        error: function(err){
+                            console.log("Update failed!");
+                            console.log(err);
+                            statusbox.html('<div class="alert alert-danger alert-dismissible fade show" role="alert">Update failed!<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>');
+                      }});
+                  });
+              });
+        </script>
+        {% elif author %}
+        <div class="container articles">
+            <div class="row">
+            </div>
+        </div>
+        <script type="text/javascript">
+            var SCRIPT_ROOT = {{ request.script_root|tojson|safe }} ;
+            var AUTHOR = {{ author|tojson|safe }} ;
+            var AURL = SCRIPT_ROOT + "/api/author/"+ AUTHOR;
+            $( document ).ready(function() {
+                $.getJSON(AURL).done(
+                  function(data) {
+                     console.log(data);
+                     for(i=0;i<data.length;i++)
+                     {
+                        var dt = moment(data[i].published.$date).utc().format("dddd, MMMM Do YYYY, h:mm:ss a");
+                        var newrow = '';
+                        newrow += '<div class="card text-center mt-3"><div class="card-header">Published '+dt.toString()+'</div>';
+                        newrow += '<div class="card-body"><h5 class="card-title"><a href="/'+data[i]._id.$oid+'">'+data[i].title+'</a></h5>';
+                        newrow += '<p class="card-text">'+data[i].body+'</p></div>';
+                        newrow += '<div class="card-footer text-muted"><a href="/author/'+data[i].author+'">'+data[i].author+'</div>';
+                        newrow += '</div>';
+                        $(".articles").append(newrow);
+                     }
+                   }
+                 ).fail(function(err){
+                   console.log("Error!");
+                   console.log(err);
+                 });
+            });
+        </script>
+        {% elif article %}
+        <div class="container article">
+        </div>
+        <script type="text/javascript">
+            var PAGEID = {{ article|tojson|safe }} ;
+            var SCRIPT_ROOT = {{ request.script_root|tojson|safe }} ;
+            var AURL = SCRIPT_ROOT + "/api/article/" + PAGEID;
+            $( document ).ready(function() {
+                $.getJSON(AURL).done(
+                  function(data) {
+                      console.log(data);
+                      var dt = moment(data.published.$date).utc().format("dddd, MMMM Do YYYY, h:mm:ss a");
+                      var newrow = '';
+                      newrow += '<div class="card text-center"><div class="card-header">Published '+dt.toString()+'</div>';
+                      newrow += '<div class="card-body"><h5 class="card-title">'+data.title+'</h5>';
+                      newrow += '<p class="card-text">'+data.body+'</p></div>';
+                      newrow += '<div class="card-footer text-muted"><a href="/author/'+data.author+'">'+data.author+'</div>';
+                      newrow += '</div>';
+                      $(".article").append(newrow);
+                   }
+                 ).fail(function(err){
+                   console.log("Error!");
+                   console.log(err);
+                 });
+            });
+        </script>
+        {% else %}
+        <div class="container articles">
+            <div class="row">
+            </div>
+        </div>
+        <script type="text/javascript">
+            var SCRIPT_ROOT = {{ request.script_root|tojson|safe }} ;
+            var AURL = SCRIPT_ROOT + "/api/articles";
+            $( document ).ready(function() {
+                $.getJSON(AURL).done(
+                  function(data) {
+                     console.log(data);
+                     for(i=0;i<data.length;i++)
+                     {
+                        var dt = moment(data[i].published.$date).utc().format("dddd, MMMM Do YYYY, h:mm:ss a");
+                        var newrow = '';
+                        newrow += '<div class="card text-center mt-3"><div class="card-header">Published '+dt.toString()+'</div>';
+                        newrow += '<div class="card-body"><h5 class="card-title"><a href="/'+data[i]._id.$oid+'">'+data[i].title+'</a></h5>';
+                        newrow += '<p class="card-text">'+data[i].body+'</p></div>';
+                        newrow += '<div class="card-footer text-muted"><a href="/author/'+data[i].author+'">'+data[i].author+'</div>';
+                        newrow += '</div>';
+                        $(".articles").append(newrow);
+                     }
+                   }
+                 ).fail(function(err){
+                   console.log("Error!");
+                   console.log(err);
+                 });
+            });
+        </script>
+        {% endif %}
+    </body>
+</html>
